@@ -120,47 +120,17 @@ docker compose up -d
 
 Thêm [Watchtower](https://containrrr.dev/watchtower/) để VPS tự động pull image mới và restart khi có bản cập nhật.
 
-Mở file `/opt/cqa/docker-compose.yml` trên VPS, sửa 3 chỗ:
-
-**1. Thêm label vào service `app` và `nginx`** (để Watchtower biết cần update):
-
-```yaml
-services:
-  app:
-    image: buitanviet/chat-quality-agent:latest
-    labels:
-      - com.centurylinklabs.watchtower.enable=true
-    ...
-
-  nginx:
-    image: buitanviet/chat-quality-agent-nginx:latest
-    labels:
-      - com.centurylinklabs.watchtower.enable=true
-    ...
-```
-
-**2. KHÔNG thêm label vào `db`** — MySQL sẽ không bị tự động update (tránh lỗi data).
-
-**3. Thêm service `watchtower` vào cuối phần `services:`**:
-
-```yaml
-  watchtower:
-    image: containrrr/watchtower
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_POLL_INTERVAL=300
-      - WATCHTOWER_LABEL_ENABLE=true
-    restart: unless-stopped
-```
-
-Chạy:
+Chạy lệnh sau trên VPS để cập nhật file docker-compose.yml (đã bao gồm Watchtower + label):
 
 ```bash
 cd /opt/cqa
-docker compose up -d watchtower
+curl -sfL https://raw.githubusercontent.com/tanviet12/chat-quality-agent/main/docker-compose.hub.yml -o docker-compose.yml
+docker compose up -d
 ```
+
+::: info Lệnh trên an toàn
+File `.env` (chứa secrets, database password) không bị ảnh hưởng. Dữ liệu MySQL nằm trong Docker volume, không bị mất.
+:::
 
 Watchtower sẽ kiểm tra Docker Hub mỗi 5 phút. Khi phát hiện image mới, tự pull và restart container **app + nginx** (có label). MySQL không có label nên không bị update, dữ liệu an toàn.
 
