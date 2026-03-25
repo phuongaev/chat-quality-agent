@@ -10,6 +10,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
@@ -314,7 +315,7 @@ func issueAuthCode(c *gin.Context, client models.OAuthClient, userID, redirectUR
 	// Redirect back with auth code
 	redirectURL := fmt.Sprintf("%s?code=%s", redirectURI, code)
 	if state != "" {
-		redirectURL += "&state=" + state
+		redirectURL += "&state=" + url.QueryEscape(state)
 	}
 	c.Redirect(http.StatusFound, redirectURL)
 }
