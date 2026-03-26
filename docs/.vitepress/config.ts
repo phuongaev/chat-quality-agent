@@ -78,7 +78,7 @@ export default defineConfig({
 
     footer: {
       message: 'Phát hành theo giấy phép MIT',
-      copyright: 'Copyright 2025 SePay',
+      copyright: 'Copyright 2026 SePay',
     },
   },
 })
