@@ -1,5 +1,41 @@
 # Changelog
 
+## v2026.03.26
+
+### Tính năng mới
+- **Thông báo cập nhật**: Banner thông báo khi có phiên bản mới + changelog + hướng dẫn update
+- **Nút Dừng job**: Có thể dừng job đang chạy từ giao diện (#7)
+- **Docs + Version**: Hiển thị ở sidebar, truy cập nhanh tài liệu và changelog
+- **URL ứng dụng**: Cấu hình URL trong Cài đặt để link thông báo Telegram/Email chính xác (#43)
+
+### Sửa lỗi
+- **Job bị treo**: Fix infinite loop khi batchSize=0, thêm context cancellation check, check lỗi DB query (#7)
+- **Facebook token**: Fix lỗi "must be called with Page Access Token" — tự động exchange User Token thành Page Token (#12, #13, #14)
+- **Gemini models**: Thay gemini-2.0-flash (deprecated) bằng gemini-2.5-flash/pro
+- **Lịch chạy**: Không lưu được "Lịch chạy" khi sửa công việc (#9)
+- **AI model**: Job detail hiện đúng AI model từ Settings global thay vì giá trị cũ (#33)
+- **Tỷ giá**: Dashboard dùng tỷ giá từ tenant settings thay vì hardcode 26000 VND (#23)
+- **Install script**: Fix bị treo trên Ubuntu do interactive prompt (#35)
+- **Ảnh trong đánh giá**: Hiển thị ảnh/sticker/file trong "Diễn biến cuộc chat" + lightbox zoom (#39)
+- **Link Telegram**: Link thông báo dùng domain thực thay vì localhost (#43)
+
+### Bảo mật
+- Thêm security log khi từ chối truy cập file (IDOR fix)
+- IDOR: Kiểm tra tenant ownership khi serve file (#22)
+- Token refresh: Fix race condition gây logout bất ngờ (#26)
+- OAuth state URL-encoded (#29)
+- Goroutine timeout cho TriggerJob và TestRunJob (#30, #31)
+- Giới hạn per_page max 100 tránh DB exhaustion (#32)
+- Infinite polling: Frontend tự dừng poll sau timeout (#27, #28)
+
+### Tài liệu
+- Sửa hướng dẫn lấy Telegram Group ID — dùng Telegram Web (#36)
+- Thêm hướng dẫn chạy localhost (Zalo OA hỗ trợ callback localhost) (#34)
+- Sửa docs Zalo OA: localhost không cần SSL (#37)
+- Đơn giản hóa cài đặt Watchtower — 1 lệnh curl thay vì sửa YAML thủ công
+
+---
+
 ## v2026.03.24
 
 ### Bug Fixes
