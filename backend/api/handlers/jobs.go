@@ -33,7 +33,7 @@ type CreateJobRequest struct {
 	RulesContent    string          `json:"rules_content"`
 	RulesConfig     json.RawMessage `json:"rules_config"`
 	SkipConditions  string          `json:"skip_conditions"`
-	AIProvider      string          `json:"ai_provider" binding:"required,oneof=claude gemini"`
+	AIProvider      string          `json:"ai_provider" binding:"omitempty,oneof=claude gemini"`
 	AIModel         string          `json:"ai_model"`
 	Outputs         json.RawMessage `json:"outputs" binding:"required"`
 	OutputSchedule  string          `json:"output_schedule" binding:"required,oneof=instant scheduled cron none"`
