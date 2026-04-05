@@ -68,6 +68,19 @@ services:
       --collation-server=utf8mb4_unicode_ci
       --default-authentication-plugin=mysql_native_password
 
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: cqa-phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      - PMA_HOST=db
+      - PMA_PORT=3306
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    depends_on:
+      - db
+
 volumes:
   mysql_data:
   file_storage:
