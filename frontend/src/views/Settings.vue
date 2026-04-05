@@ -31,12 +31,26 @@
           <v-select
             v-model="aiSettings.provider"
             :label="$t('ai_provider')"
-            :items="[{ title: 'Claude (Anthropic)', value: 'claude' }, { title: 'Gemini (Google)', value: 'gemini' }]"
+            :items="[
+              { title: 'Claude (Anthropic)', value: 'claude' },
+              { title: 'Gemini (Google)', value: 'gemini' },
+              { title: 'OpenAI Compatible', value: 'openai' },
+            ]"
             class="mb-3"
             @update:model-value="onProviderChange"
           />
 
+          <v-text-field
+            v-if="aiSettings.provider === 'openai'"
+            v-model="aiSettings.model"
+            :label="$t('ai_model')"
+            placeholder="e.g., gpt-4o, deepseek-chat, claude-3-haiku"
+            hint="Nhập tên model được hỗ trợ bởi endpoint"
+            persistent-hint
+            class="mb-3"
+          />
           <v-select
+            v-else
             v-model="aiSettings.model"
             :label="$t('ai_model')"
             :items="modelOptions"
@@ -53,6 +67,7 @@
           />
 
           <v-switch
+            v-if="aiSettings.provider !== 'openai'"
             v-model="useCustomBaseUrl"
             label="Tùy chỉnh API URL"
             color="primary"
@@ -60,18 +75,18 @@
             hide-details
             class="mt-1 mb-2"
           />
-          <div v-if="!useCustomBaseUrl" class="text-caption text-grey mb-2">Bật khi cần dùng proxy (OpenRouter, LiteLLM) hoặc self-hosted</div>
+          <div v-if="aiSettings.provider !== 'openai' && !useCustomBaseUrl" class="text-caption text-grey mb-2">Bật khi cần dùng proxy (OpenRouter, LiteLLM) hoặc self-hosted</div>
 
           <v-text-field
-            v-if="useCustomBaseUrl"
+            v-if="useCustomBaseUrl || aiSettings.provider === 'openai'"
             v-model="aiSettings.baseUrl"
             label="Base URL"
-            :placeholder="aiSettings.provider === 'claude' ? 'https://api.anthropic.com' : 'https://generativelanguage.googleapis.com'"
-            hint="Để trống để dùng mặc định"
+            :placeholder="aiSettings.provider === 'openai' ? 'https://api.openai.com/v1' : aiSettings.provider === 'claude' ? 'https://api.anthropic.com' : 'https://generativelanguage.googleapis.com'"
+            :hint="aiSettings.provider === 'openai' ? 'Bắt buộc. Nhập URL endpoint tương thích OpenAI (bao gồm /v1 nếu cần)' : 'Để trống để dùng mặc định'"
             persistent-hint
             clearable
             :rules="[
-              v => !!v || 'Vui lòng nhập URL hoặc tắt tùy chỉnh',
+              v => !!v || 'Vui lòng nhập URL',
               v => !v || v.startsWith('http://') || v.startsWith('https://') || 'URL phải bắt đầu bằng http:// hoặc https://',
             ]"
             class="mb-3"
@@ -216,7 +231,14 @@ const modelOptions = computed(() => {
 
 function onProviderChange() {
   // Reset to default model when switching provider
-  aiSettings.model = aiSettings.provider === 'claude' ? 'claude-sonnet-4-6' : 'gemini-2.5-flash'
+  if (aiSettings.provider === 'claude') {
+    aiSettings.model = 'claude-sonnet-4-6'
+  } else if (aiSettings.provider === 'gemini') {
+    aiSettings.model = 'gemini-2.5-flash'
+  } else if (aiSettings.provider === 'openai') {
+    aiSettings.model = ''
+    useCustomBaseUrl.value = true
+  }
 }
 
 async function loadSettings() {
@@ -227,6 +249,9 @@ async function loadSettings() {
     if (data.settings.ai_api_key) aiSettings.apiKey = data.settings.ai_api_key
     if (data.settings.ai_base_url) {
       aiSettings.baseUrl = data.settings.ai_base_url
+      useCustomBaseUrl.value = true
+    }
+    if (aiSettings.provider === 'openai') {
       useCustomBaseUrl.value = true
     }
     if (data.settings.ai_batch_mode) aiSettings.batchMode = data.settings.ai_batch_mode === 'true'
@@ -265,7 +290,11 @@ async function saveAI() {
     showSnack('Vui lòng nhập API Key', 'error')
     return
   }
-  if (useCustomBaseUrl.value && !aiSettings.baseUrl) {
+  if (aiSettings.provider === 'openai' && !aiSettings.baseUrl) {
+    showSnack('OpenAI Compatible yêu cầu nhập Base URL', 'error')
+    return
+  }
+  if (useCustomBaseUrl.value && !aiSettings.baseUrl && aiSettings.provider !== 'openai') {
     showSnack('Vui lòng nhập Base URL hoặc tắt tùy chỉnh', 'error')
     return
   }
@@ -275,7 +304,7 @@ async function saveAI() {
       provider: aiSettings.provider,
       model: aiSettings.model,
       api_key: aiSettings.apiKey,
-      base_url: useCustomBaseUrl.value ? (aiSettings.baseUrl || '') : '',
+      base_url: (useCustomBaseUrl.value || aiSettings.provider === 'openai') ? (aiSettings.baseUrl || '') : '',
       batch_mode: aiSettings.batchMode ? 'true' : 'false',
       batch_size: String(aiSettings.batchSize),
     })

@@ -8,7 +8,7 @@ type AIResponse struct {
 	InputTokens  int
 	OutputTokens int
 	Model        string
-	Provider     string // "claude" or "gemini"
+	Provider     string // "claude", "gemini", or "openai"
 }
 
 // BatchItem represents one conversation in a batch request.
@@ -52,6 +52,9 @@ func CalculateCostUSD(provider, model string, inputTokens, outputTokens int) flo
 		default:
 			inputRate, outputRate = 0.075, 0.30 // default flash pricing
 		}
+	case "openai":
+		// OpenAI-compatible endpoints have varying pricing; return 0 by default.
+		return 0
 	default:
 		return 0
 	}

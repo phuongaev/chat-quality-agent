@@ -425,6 +425,11 @@ func (a *Analyzer) getProvider(job models.Job) (ai.AIProvider, error) {
 		return ai.NewClaudeProvider(apiKey, model, a.cfg.AIMaxTokens, baseURL), nil
 	case "gemini":
 		return ai.NewGeminiProvider(apiKey, model, baseURL), nil
+	case "openai":
+		if baseURL == "" {
+			return nil, fmt.Errorf("OpenAI Compatible provider requires a Base URL - go to Settings > AI Config")
+		}
+		return ai.NewOpenAIProvider(apiKey, model, a.cfg.AIMaxTokens, baseURL), nil
 	default:
 		return nil, fmt.Errorf("unsupported AI provider: %s", provider)
 	}

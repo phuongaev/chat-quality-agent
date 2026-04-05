@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/vietbui/chat-quality-agent/ai"
 	"github.com/vietbui/chat-quality-agent/api/middleware"
 	"github.com/vietbui/chat-quality-agent/config"
 	"github.com/vietbui/chat-quality-agent/db"
@@ -59,7 +60,7 @@ func getSettingValue(settings []models.AppSetting, key, defaultVal string) strin
 func SaveAISettings(c *gin.Context) {
 	tenantID := middleware.GetTenantID(c)
 	var req struct {
-		Provider  string `json:"provider" binding:"required,oneof=claude gemini"`
+		Provider  string `json:"provider" binding:"required,oneof=claude gemini openai"`
 		APIKey    string `json:"api_key" binding:"required"`
 		Model     string `json:"model"`
 		BaseURL   string `json:"base_url"`
@@ -68,6 +69,12 @@ func SaveAISettings(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request", "details": err.Error()})
+		return
+	}
+
+	// OpenAI Compatible requires a base URL
+	if req.Provider == "openai" && req.BaseURL == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "OpenAI Compatible provider requires a Base URL"})
 		return
 	}
 
@@ -153,10 +160,52 @@ func TestAIKey(c *gin.Context) {
 		provider = providerSetting.ValuePlain
 	}
 
-	_ = apiKey
-	_ = provider
-	// TODO: Actually test the API key by calling the provider
-	c.JSON(http.StatusOK, gin.H{"status": "ok", "provider": provider, "message": "API key configured"})
+	// Get model
+	model := ""
+	var modelSetting models.AppSetting
+	if err := db.DB.Where("tenant_id = ? AND setting_key = ?", tenantID, "ai_model").First(&modelSetting).Error; err == nil {
+		model = modelSetting.ValuePlain
+	}
+
+	// Get base URL
+	var baseURL string
+	var baseURLSetting models.AppSetting
+	if err := db.DB.Where("tenant_id = ? AND setting_key = ?", tenantID, "ai_base_url").First(&baseURLSetting).Error; err == nil {
+		baseURL = baseURLSetting.ValuePlain
+	}
+
+	// Create provider and send a simple test request
+	var aiProvider ai.AIProvider
+	switch provider {
+	case "claude":
+		aiProvider = ai.NewClaudeProvider(string(apiKey), model, 100, baseURL)
+	case "gemini":
+		aiProvider = ai.NewGeminiProvider(string(apiKey), model, baseURL)
+	case "openai":
+		if baseURL == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "OpenAI Compatible requires a Base URL"})
+			return
+		}
+		aiProvider = ai.NewOpenAIProvider(string(apiKey), model, 100, baseURL)
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported provider: " + provider})
+		return
+	}
+
+	// Test with a minimal prompt
+	ctx := c.Request.Context()
+	resp, err := aiProvider.AnalyzeChat(ctx, "You are a test assistant.", "Reply with exactly: OK")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Connection failed: %v", err)})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":   "ok",
+		"provider": provider,
+		"model":    resp.Model,
+		"message":  fmt.Sprintf("Connected successfully! Model: %s", resp.Model),
+	})
 }
 
 // SaveGeneralSettings saves general tenant settings
