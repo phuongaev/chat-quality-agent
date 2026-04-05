@@ -20,7 +20,10 @@ services:
       - app
 
   app:
-    build: .
+    build:
+      context: .
+      args:
+        VERSION: ${APP_VERSION:-dev}
     container_name: cqa-app
     restart: unless-stopped
     expose:
