@@ -98,12 +98,10 @@ func (p *PancakeAdapter) FetchRecentConversations(ctx context.Context, since tim
 	seenIDs := make(map[string]bool)
 	lastConvID := ""
 
-	// Build base URL — use access_token (verified working) + order by updated_at
-	baseURL := fmt.Sprintf("%s/pages/%s/conversations?access_token=%s&order_by=updated_at",
+	// Build base URL — use access_token (verified working)
+	// Note: since/order_by filtering done client-side to avoid API compat issues
+	baseURL := fmt.Sprintf("%s/pages/%s/conversations?access_token=%s",
 		pancakeConversationsBase, p.creds.PageID, p.creds.AccessToken)
-	if !since.IsZero() {
-		baseURL += fmt.Sprintf("&since=%d", since.Unix())
-	}
 	log.Printf("[pancake] fetching conversations: since=%v, limit=%d", since, limit)
 
 	batch := 0
