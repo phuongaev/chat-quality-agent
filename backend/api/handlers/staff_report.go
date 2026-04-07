@@ -46,17 +46,16 @@ func GetStaffReport(c *gin.Context) {
 
 	// Step 1: Get all unique agents from messages in the time range
 	type agentInfo struct {
-		SenderName       string
-		SenderExternalID string
-		ConvCount        int64
-		MsgCount         int64
+		SenderName string
+		ConvCount  int64
+		MsgCount   int64
 	}
 
 	msgQuery := db.DB.Model(&models.Message{}).
-		Select("sender_name, sender_external_id, COUNT(DISTINCT conversation_id) as conv_count, COUNT(*) as msg_count").
+		Select("sender_name, COUNT(DISTINCT conversation_id) as conv_count, COUNT(*) as msg_count").
 		Where("tenant_id = ? AND sender_type = 'agent' AND sender_name != '' AND sent_at >= ? AND sent_at <= ?",
 			tenantID, fromDate, toDate).
-		Group("sender_name, sender_external_id")
+		Group("sender_name")
 
 	// Filter by channel if specified
 	if channelID != "" {
@@ -154,7 +153,6 @@ func GetStaffReport(c *gin.Context) {
 
 		results = append(results, StaffReportItem{
 			Name:                   agent.SenderName,
-			SenderExternalID:       agent.SenderExternalID,
 			TotalConversations:     int(agent.ConvCount),
 			TotalMessages:          int(agent.MsgCount),
 			EvaluatedConversations: len(evals),
