@@ -96,23 +96,33 @@ func (p *PancakeAdapter) doRequest(ctx context.Context, url string) (map[string]
 func (p *PancakeAdapter) FetchRecentConversations(ctx context.Context, since time.Time, limit int) ([]SyncedConversation, error) {
 	var conversations []SyncedConversation
 	seenIDs := make(map[string]bool)
-	dupPages := 0
+	lastConvID := ""
 
-	pageNum := 1
+	// Build base URL with since filter (Unix timestamp in seconds)
+	baseURL := fmt.Sprintf("%s/pages/%s/conversations?page_access_token=%s&order_by=updated_at",
+		pancakeConversationsBase, p.creds.PageID, p.creds.AccessToken)
+	if !since.IsZero() {
+		baseURL += fmt.Sprintf("&since=%d", since.Unix())
+	}
+
+	batch := 0
 	for {
 		if limit > 0 && len(conversations) >= limit {
 			break
 		}
 
-		url := fmt.Sprintf("%s/pages/%s/conversations?access_token=%s&page=%d",
-			pancakeConversationsBase, p.creds.PageID, p.creds.AccessToken, pageNum)
+		// Cursor-based pagination: pass last_conversation_id from previous batch
+		fetchURL := baseURL
+		if lastConvID != "" {
+			fetchURL += "&last_conversation_id=" + lastConvID
+		}
 
-		result, err := p.doRequest(ctx, url)
+		result, err := p.doRequest(ctx, fetchURL)
 		if err != nil {
 			return conversations, err
 		}
 
-		// Pancake returns conversations under "conversations" key (not "data")
+		// Pancake returns conversations under "conversations" key
 		data, ok := result["data"].([]interface{})
 		if !ok {
 			data, ok = result["conversations"].([]interface{})
@@ -121,8 +131,8 @@ func (p *PancakeAdapter) FetchRecentConversations(ctx context.Context, since tim
 			break
 		}
 
-		reachedOld := false
 		prevCount := len(conversations)
+		var batchLastID string
 		for _, item := range data {
 			conv, ok := item.(map[string]interface{})
 			if !ok {
@@ -135,23 +145,18 @@ func (p *PancakeAdapter) FetchRecentConversations(ctx context.Context, since tim
 					convID = fmt.Sprintf("%.0f", numID)
 				}
 			}
+			batchLastID = convID
 
-			// Skip duplicates (Pancake may return same conversations across pages)
+			// Skip duplicates
 			if seenIDs[convID] {
 				continue
 			}
 			seenIDs[convID] = true
 
-			// Parse updated_at — Pancake format: "2026-04-06T14:24:19" (no timezone)
+			// Parse updated_at
 			updatedAt := parsePancakeTime(conv, "updated_at")
 			if updatedAt.IsZero() {
 				updatedAt = parsePancakeTime(conv, "inserted_at")
-			}
-
-			// Only filter by since if we successfully parsed a timestamp
-			if !updatedAt.IsZero() && !since.IsZero() && updatedAt.Before(since) {
-				reachedOld = true
-				break
 			}
 
 			// Extract customer name from customers[] array
@@ -192,38 +197,26 @@ func (p *PancakeAdapter) FetchRecentConversations(ctx context.Context, since tim
 				Metadata:       conv,
 			})
 
-			// Stop within page if we've reached the limit
 			if limit > 0 && len(conversations) >= limit {
 				break
 			}
 		}
 
+		batch++
 		newCount := len(conversations) - prevCount
-		log.Printf("[pancake] page %d: %d items, %d new, %d duplicates, total unique: %d, limit: %d",
-			pageNum, len(data), newCount, len(data)-newCount, len(conversations), limit)
+		log.Printf("[pancake] batch %d: %d items, %d new, total: %d/%d",
+			batch, len(data), newCount, len(conversations), limit)
 
-		if reachedOld {
+		// No new conversations in this batch or cursor didn't advance — stop
+		if batchLastID == "" || batchLastID == lastConvID {
 			break
 		}
+		lastConvID = batchLastID
 
-		// Track consecutive pages with no new data
-		if newCount == 0 {
-			dupPages++
-		} else {
-			dupPages = 0
-		}
-		// Stop after 3 consecutive pages of all duplicates
-		if dupPages >= 3 {
-			log.Printf("[pancake] stopping: %d consecutive pages with 0 new conversations", dupPages)
+		// Less than 60 items means we've reached the end
+		if len(data) < 60 {
 			break
 		}
-
-		// Pancake returns ~60 items per page; if less, we've reached the last page
-		if len(data) < 50 {
-			break
-		}
-
-		pageNum++
 	}
 
 	return conversations, nil
@@ -368,7 +361,7 @@ func (p *PancakeAdapter) FetchMessages(ctx context.Context, conversationID strin
 }
 
 func (p *PancakeAdapter) HealthCheck(ctx context.Context) error {
-	url := fmt.Sprintf("%s/pages/%s/conversations?access_token=%s&page=1",
+	url := fmt.Sprintf("%s/pages/%s/conversations?page_access_token=%s",
 		pancakeConversationsBase, p.creds.PageID, p.creds.AccessToken)
 	_, err := p.doRequest(ctx, url)
 	return err
