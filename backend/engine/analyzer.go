@@ -465,6 +465,11 @@ func (a *Analyzer) saveResults(runID, tenantID, conversationID, jobType, aiRespo
 				Explanation string `json:"explanation"`
 				Suggestion  string `json:"suggestion"`
 			} `json:"violations"`
+			CustomerSentiment struct {
+				Score  int    `json:"score"`
+				Label  string `json:"label"`
+				Reason string `json:"reason"`
+			} `json:"customer_sentiment"`
 			Score   int    `json:"score"`
 			Review  string `json:"review"`
 			Summary string `json:"summary"`
@@ -478,9 +483,10 @@ func (a *Analyzer) saveResults(runID, tenantID, conversationID, jobType, aiRespo
 
 		// Save conversation evaluation record (for every conversation)
 		evalDetailJSON, _ := json.Marshal(map[string]interface{}{
-			"review":  qcResult.Review,
-			"score":   qcResult.Score,
-			"summary": qcResult.Summary,
+			"review":             qcResult.Review,
+			"score":              qcResult.Score,
+			"summary":            qcResult.Summary,
+			"customer_sentiment": qcResult.CustomerSentiment,
 		})
 		evalResult := models.JobResult{
 			ID:             pkg.NewUUID(),

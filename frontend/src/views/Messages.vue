@@ -290,10 +290,16 @@
                       {{ getQcVerdict(g) === 'PASS' ? 'Đạt' : getQcVerdict(g) === 'SKIP' ? 'Bỏ qua' : 'Không đạt' }}
                     </v-chip>
                     <v-chip v-if="getQcScore(g) != null" size="x-small" variant="tonal" class="mr-2">{{ getQcScore(g) }}/100</v-chip>
+                    <v-chip v-if="getSentiment(g)" size="x-small" :color="sentimentColor(getSentiment(g).label)" variant="tonal" class="mr-2">
+                      {{ sentimentIcon(getSentiment(g).label) }} {{ sentimentLabel(getSentiment(g).label) }}
+                    </v-chip>
                     <span class="text-body-2 font-weight-medium flex-grow-1">{{ g.job_name }}</span>
                     <span class="text-caption text-grey">{{ formatTime(g.evaluated_at) }}</span>
                   </div>
                   <div v-if="getQcReview(g)" class="text-body-2 text-grey-darken-1 mb-2" style="font-size: 13px;">{{ getQcReview(g) }}</div>
+                  <div v-if="getSentiment(g)?.reason" class="text-body-2 mb-2 pa-2 rounded" :style="`font-size: 12px; background: ${sentimentBg(getSentiment(g).label)}; border-left: 3px solid ${sentimentBorder(getSentiment(g).label)}`">
+                    <strong>Cảm xúc khách hàng:</strong> {{ getSentiment(g).reason }} <span class="text-caption">({{ getSentiment(g).score > 0 ? '+' : '' }}{{ getSentiment(g).score }})</span>
+                  </div>
                   <v-btn v-if="getQcViolations(g).length > 0" size="x-small" variant="text" color="primary" @click="toggleQcExpand(g.job_run_id)">
                     {{ expandedQc[g.job_run_id] ? 'Thu gọn' : `Xem chi tiết (${getQcViolations(g).length} vấn đề)` }}
                   </v-btn>
@@ -507,6 +513,33 @@ function getQcViolations(g: any): any[] {
 const expandedQc = ref<Record<string, boolean>>({})
 function toggleQcExpand(runId: string) {
   expandedQc.value[runId] = !expandedQc.value[runId]
+}
+
+// Sentiment helpers
+function getSentiment(g: any): any {
+  const ev = g.results?.find((r: any) => r.result_type === 'conversation_evaluation')
+  if (!ev?.detail) return null
+  try { return JSON.parse(ev.detail)?.customer_sentiment ?? null } catch { return null }
+}
+function sentimentColor(label: string): string {
+  const m: Record<string, string> = { VERY_POSITIVE: 'success', POSITIVE: 'light-green', NEUTRAL: 'grey', NEGATIVE: 'orange', VERY_NEGATIVE: 'error' }
+  return m[label] || 'grey'
+}
+function sentimentIcon(label: string): string {
+  const m: Record<string, string> = { VERY_POSITIVE: '😊', POSITIVE: '🙂', NEUTRAL: '😐', NEGATIVE: '😟', VERY_NEGATIVE: '😠' }
+  return m[label] || '😐'
+}
+function sentimentLabel(label: string): string {
+  const m: Record<string, string> = { VERY_POSITIVE: 'Rất tích cực', POSITIVE: 'Tích cực', NEUTRAL: 'Trung tính', NEGATIVE: 'Tiêu cực', VERY_NEGATIVE: 'Rất tiêu cực' }
+  return m[label] || label
+}
+function sentimentBg(label: string): string {
+  const m: Record<string, string> = { VERY_POSITIVE: '#e8f5e9', POSITIVE: '#f1f8e9', NEUTRAL: '#f5f5f5', NEGATIVE: '#fff3e0', VERY_NEGATIVE: '#fbe9e7' }
+  return m[label] || '#f5f5f5'
+}
+function sentimentBorder(label: string): string {
+  const m: Record<string, string> = { VERY_POSITIVE: '#4caf50', POSITIVE: '#8bc34a', NEUTRAL: '#9e9e9e', NEGATIVE: '#ff9800', VERY_NEGATIVE: '#f44336' }
+  return m[label] || '#9e9e9e'
 }
 
 // Classification group helpers

@@ -37,11 +37,20 @@ Trả về JSON với cấu trúc sau:
       "suggestion": "Gợi ý cách trả lời đúng"
     }
   ],
+  "customer_sentiment": {
+    "score": -100 đến 100,
+    "label": "VERY_NEGATIVE" | "NEGATIVE" | "NEUTRAL" | "POSITIVE" | "VERY_POSITIVE",
+    "reason": "Giải thích ngắn gọn tại sao khách hàng có cảm xúc này"
+  },
   "summary": "Tổng quan ngắn gọn về chất lượng chat"
 }
 
 - "verdict": "PASS" nếu cuộc chat đạt yêu cầu chất lượng, "FAIL" nếu có vấn đề cần khắc phục, "SKIP" nếu thỏa điều kiện bỏ qua
 - "review": Nhận xét chi tiết về cuộc chat (2-3 câu), đánh giá chất lượng chăm sóc khách hàng
+- "customer_sentiment": Phân tích cảm xúc của khách hàng trong cuộc chat:
+  - score: -100 (rất tiêu cực) đến 100 (rất tích cực), 0 là trung tính
+  - label: nhãn cảm xúc tổng quan
+  - reason: lý do khách có cảm xúc này (dựa trên nội dung chat, từ ngữ, thái độ)
 - Nếu không có vi phạm: verdict="PASS", violations=[], score gần 100
 - Nếu có vi phạm nghiêm trọng: verdict="FAIL"
 CHỈ trả về JSON, không thêm text khác.`, rulesContent, skipSection)
