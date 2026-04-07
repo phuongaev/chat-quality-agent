@@ -824,7 +824,8 @@ watch(filterEvaluation, () => {
 })
 
 watch(filterAgentName, () => {
-  // handled by debouncedSearch
+  currentPage.value = 1
+  loadConversations()
 })
 
 onMounted(async () => {
@@ -832,9 +833,12 @@ onMounted(async () => {
   currentPage.value = 1
   conversationStore.total = 0
 
-  // Pre-fill filter from query params (e.g. from channels page)
+  // Pre-fill filters from query params (e.g. from channels page or staff report)
   if (route.query.channel_id) {
     filterChannelId.value = route.query.channel_id as string
+  }
+  if (route.query.agent_name) {
+    filterAgentName.value = route.query.agent_name as string
   }
 
   await channelStore.fetchChannels(tenantId.value)
