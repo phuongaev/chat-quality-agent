@@ -163,6 +163,11 @@ func (p *PancakeAdapter) FetchRecentConversations(ctx context.Context, since tim
 				LastMessageAt:  updatedAt,
 				Metadata:       conv,
 			})
+
+			// Stop within page if we've reached the limit
+			if limit > 0 && len(conversations) >= limit {
+				break
+			}
 		}
 
 		log.Printf("[pancake] page %d: got %d items, total so far: %d, reachedOld: %v, limit: %d",
@@ -249,6 +254,12 @@ func (p *PancakeAdapter) FetchMessages(ctx context.Context, conversationID strin
 
 			content, _ := msg["message"].(string)
 			content = stripHTMLTags(content)
+			// Fallback to original_message if message was only HTML tags
+			if content == "" {
+				if orig, ok := msg["original_message"].(string); ok {
+					content = stripHTMLTags(orig)
+				}
+			}
 
 			// Determine sender info
 			senderType := "customer"
