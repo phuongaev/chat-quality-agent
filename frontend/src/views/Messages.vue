@@ -58,6 +58,18 @@
                 />
                 <v-btn v-if="authStore.canEdit('messages')" size="small" variant="tonal" color="primary" icon="mdi-export" @click="showExportDialog = true" />
               </v-col>
+              <v-col cols="6" sm="3">
+                <v-text-field
+                  v-model="filterAgentName"
+                  label="Nhân viên"
+                  prepend-inner-icon="mdi-headset"
+                  clearable
+                  density="compact"
+                  variant="outlined"
+                  hide-details
+                  @update:model-value="debouncedSearch"
+                />
+              </v-col>
             </v-row>
           </v-card-text>
         </v-card>
@@ -87,7 +99,7 @@
               />
               <v-select
                 v-model="exportChannelType"
-                :items="[{ title: 'Tất cả kênh', value: '' }, { title: 'Zalo OA', value: 'zalo_oa' }, { title: 'Facebook', value: 'facebook' }]"
+                :items="[{ title: 'Tất cả kênh', value: '' }, { title: 'Zalo OA', value: 'zalo_oa' }, { title: 'Facebook', value: 'facebook' }, { title: 'Pancake', value: 'pancake' }]"
                 label="Kênh"
                 density="compact"
                 variant="outlined"
@@ -116,9 +128,9 @@
                 @click="selectConversation(conv.id)"
               >
                 <template #prepend>
-                  <v-avatar :color="conv.channel_type === 'facebook' ? 'blue' : 'green'" size="32" class="mr-3">
+                  <v-avatar :color="convAvatarColor(conv.channel_type)" size="32" class="mr-3">
                     <v-icon color="white" size="16">
-                      {{ conv.channel_type === 'facebook' ? 'mdi-facebook-messenger' : 'mdi-chat' }}
+                      {{ convIcon(conv.channel_type) }}
                     </v-icon>
                   </v-avatar>
                 </template>
@@ -127,12 +139,16 @@
                   {{ conv.customer_name || $t('msg_unknown_customer') }}
                 </v-list-item-title>
                 <v-list-item-subtitle class="text-caption">
-                  <v-chip size="x-small" :color="conv.channel_type === 'facebook' ? 'blue' : 'green'" variant="tonal" class="mr-1">
-                    {{ conv.channel_type === 'facebook' ? 'FB' : 'Zalo' }}
+                  <v-chip size="x-small" :color="convAvatarColor(conv.channel_type)" variant="tonal" class="mr-1">
+                    {{ convChipLabel(conv.channel_type) }}
                   </v-chip>
                   <v-chip v-if="evaluationMap[conv.id]" size="x-small" :color="evaluationMap[conv.id] === 'PASS' ? 'success' : 'error'" variant="tonal" class="mr-1">
                     {{ evaluationMap[conv.id] === 'PASS' ? 'Đạt' : 'Không đạt' }}
                   </v-chip>
+                  <span v-if="conv.agent_names" class="text-grey-darken-1">
+                    <v-icon size="10" class="mr-1">mdi-headset</v-icon>{{ conv.agent_names }}
+                  </span>
+                  <span v-if="conv.agent_names"> · </span>
                   {{ conv.message_count }} tin · {{ timeAgo(conv.last_message_at) }}
                 </v-list-item-subtitle>
               </v-list-item>
@@ -164,9 +180,9 @@
           <!-- Header -->
           <v-card-title class="d-flex align-center pa-4">
             <v-btn icon="mdi-arrow-left" variant="text" size="small" class="d-md-none mr-2" @click="selectedConvId = null" />
-            <v-avatar :color="selectedConvChannelType === 'facebook' ? 'blue' : 'green'" size="36" class="mr-3">
+            <v-avatar :color="convAvatarColor(selectedConvChannelType)" size="36" class="mr-3">
               <v-icon color="white" size="18">
-                {{ selectedConvChannelType === 'facebook' ? 'mdi-facebook-messenger' : 'mdi-chat' }}
+                {{ convIcon(selectedConvChannelType) }}
               </v-icon>
             </v-avatar>
             <div class="flex-grow-1">
@@ -509,6 +525,7 @@ function getClassSummary(g: any): string {
 const filterChannelType = ref<string | null>(null)
 const filterChannelId = ref<string | null>(null)
 const filterEvaluation = ref<string | null>(null)
+const filterAgentName = ref<string | null>(null)
 
 // Export
 const showExportDialog = ref(false)
@@ -534,6 +551,7 @@ const perPage = 9
 const channelTypes = [
   { title: 'Facebook Fanpage', value: 'facebook' },
   { title: 'Zalo OA', value: 'zalo_oa' },
+  { title: 'Pancake', value: 'pancake' },
 ]
 
 const channelOptions = computed(() => {
@@ -566,6 +584,7 @@ async function loadConversations() {
     if (filterChannelId.value) params.channel_id = filterChannelId.value
     if (searchQuery.value) params.search = searchQuery.value
     if (filterEvaluation.value) params.evaluation = filterEvaluation.value
+    if (filterAgentName.value) params.agent_name = filterAgentName.value
 
     await conversationStore.fetchConversations(tenantId.value, params)
   } finally {
@@ -618,6 +637,24 @@ function formatTime(dateStr: string | null) {
   const hh = String(d.getHours()).padStart(2, '0')
   const mi = String(d.getMinutes()).padStart(2, '0')
   return `${day} ${dd}/${mm}/${d.getFullYear()} ${hh}:${mi}`
+}
+
+function convAvatarColor(type: string) {
+  if (type === 'facebook') return 'blue'
+  if (type === 'pancake') return 'teal'
+  return 'green'
+}
+
+function convIcon(type: string) {
+  if (type === 'facebook') return 'mdi-facebook-messenger'
+  if (type === 'pancake') return 'mdi-chat-processing'
+  return 'mdi-chat'
+}
+
+function convChipLabel(type: string) {
+  if (type === 'facebook') return 'FB'
+  if (type === 'pancake') return 'Pancake'
+  return 'Zalo'
 }
 
 function timeAgo(dateStr: string | null) {
@@ -751,6 +788,10 @@ watch(filterChannelId, () => {
 watch(filterEvaluation, () => {
   currentPage.value = 1
   loadConversations()
+})
+
+watch(filterAgentName, () => {
+  // handled by debouncedSearch
 })
 
 onMounted(async () => {

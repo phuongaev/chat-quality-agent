@@ -75,9 +75,9 @@ func (s *SyncEngine) SyncChannel(ctx context.Context, channel models.Channel) er
 		})
 	}
 
-	// Determine since — use last_sync_at or default to 7 days ago
+	// Determine since — use last_sync_at or default to 30 days ago for first sync
 	// Subtract 1 hour buffer to avoid missing messages near the boundary
-	since := time.Now().AddDate(0, 0, -7)
+	since := time.Now().AddDate(0, 0, -30)
 	if channel.LastSyncAt != nil {
 		since = channel.LastSyncAt.Add(-1 * time.Hour)
 	}
@@ -111,11 +111,42 @@ func (s *SyncEngine) SyncChannel(ctx context.Context, channel models.Channel) er
 			continue
 		}
 
-		// Fetch messages for this conversation
-		messages, err := adapter.FetchMessages(ctx, conv.ExternalID, since)
+		// Fetch messages — if this conversation has no messages yet, don't filter by since
+		// to ensure we get the initial batch of messages
+		msgSince := since
+		var existingMsgCount int64
+		db.DB.Model(&models.Message{}).Where("conversation_id = ?", convID).Count(&existingMsgCount)
+		if existingMsgCount == 0 {
+			msgSince = time.Time{} // no since filter — fetch all available messages
+		}
+		messages, err := adapter.FetchMessages(ctx, conv.ExternalID, msgSince)
 		if err != nil {
 			log.Printf("[sync] error fetching messages for %s: %v", conv.ExternalID, err)
 			continue
+		}
+
+		// For Pancake: agent messages have sender_name = page name (not staff name).
+		// Replace with actual staff names from conversation metadata (current_assign_users).
+		if channel.ChannelType == "pancake" && conv.Metadata != nil {
+			agentName := ""
+			if names, ok := conv.Metadata["_agent_names"].([]string); ok && len(names) > 0 {
+				agentName = strings.Join(names, ", ")
+			} else if names, ok := conv.Metadata["_agent_names"].([]interface{}); ok && len(names) > 0 {
+				nameStrs := []string{}
+				for _, n := range names {
+					if s, ok := n.(string); ok {
+						nameStrs = append(nameStrs, s)
+					}
+				}
+				agentName = strings.Join(nameStrs, ", ")
+			}
+			if agentName != "" {
+				for i := range messages {
+					if messages[i].SenderType == "agent" {
+						messages[i].SenderName = agentName
+					}
+				}
+			}
 		}
 
 		// Upsert messages
@@ -130,10 +161,58 @@ func (s *SyncEngine) SyncChannel(ctx context.Context, channel models.Channel) er
 			}
 		}
 
-		// Update conversation message count
+		// Update conversation message count and agent names
 		var count int64
 		db.DB.Model(&models.Message{}).Where("conversation_id = ?", convID).Count(&count)
-		db.DB.Model(&models.Conversation{}).Where("id = ?", convID).Update("message_count", count)
+
+		// Collect agent names from messages
+		var agentNamesList []string
+		db.DB.Model(&models.Message{}).
+			Where("conversation_id = ? AND sender_type = 'agent' AND sender_name != ''", convID).
+			Distinct("sender_name").
+			Pluck("sender_name", &agentNamesList)
+
+		// Also get agent names from conversation metadata (Pancake: current_assign_users)
+		if conv.Metadata != nil {
+			if metaNames, ok := conv.Metadata["_agent_names"].([]string); ok {
+				for _, n := range metaNames {
+					found := false
+					for _, existing := range agentNamesList {
+						if existing == n {
+							found = true
+							break
+						}
+					}
+					if !found {
+						agentNamesList = append(agentNamesList, n)
+					}
+				}
+			}
+			// Also handle []interface{} type from JSON
+			if metaNames, ok := conv.Metadata["_agent_names"].([]interface{}); ok {
+				for _, n := range metaNames {
+					if name, ok := n.(string); ok && name != "" {
+						found := false
+						for _, existing := range agentNamesList {
+							if existing == name {
+								found = true
+								break
+							}
+						}
+						if !found {
+							agentNamesList = append(agentNamesList, name)
+						}
+					}
+				}
+			}
+		}
+
+		agentNames := strings.Join(agentNamesList, ", ")
+
+		db.DB.Model(&models.Conversation{}).Where("id = ?", convID).Updates(map[string]interface{}{
+			"message_count": count,
+			"agent_names":   agentNames,
+		})
 	}
 
 	log.Printf("[sync] channel %s: synced %d conversations, %d messages", channel.Name, len(conversations), totalMessages)
@@ -232,6 +311,7 @@ func (s *SyncEngine) upsertMessage(tenantID, conversationID string, msg channels
 		ExternalMessageID: msg.ExternalID,
 		SenderType:        msg.SenderType,
 		SenderName:        msg.SenderName,
+		SenderExternalID:  msg.SenderExternalID,
 		Content:           msg.Content,
 		ContentType:       msg.ContentType,
 		Attachments:       string(attachmentsJSON),

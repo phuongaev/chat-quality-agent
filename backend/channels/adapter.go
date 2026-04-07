@@ -16,14 +16,15 @@ type SyncedConversation struct {
 
 // SyncedMessage represents a message fetched from an external channel.
 type SyncedMessage struct {
-	ExternalID  string
-	SenderType  string // "customer" | "agent" | "system"
-	SenderName  string
-	Content     string
-	ContentType string // "text" | "image" | "file" | "sticker" | "gif"
-	Attachments []Attachment
-	SentAt      time.Time
-	RawData     map[string]interface{}
+	ExternalID       string
+	SenderType       string // "customer" | "agent" | "system"
+	SenderName       string
+	SenderExternalID string // External ID of the sender (e.g. staff ID from Pancake)
+	Content          string
+	ContentType      string // "text" | "image" | "file" | "sticker" | "gif"
+	Attachments      []Attachment
+	SentAt           time.Time
+	RawData          map[string]interface{}
 }
 
 // Attachment represents a media attachment in a message.

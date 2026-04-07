@@ -11,6 +11,7 @@ type Conversation struct {
 	CustomerName           string     `gorm:"type:varchar(500)" json:"customer_name"`
 	LastMessageAt          *time.Time `gorm:"index:idx_conv_tenant_last_msg" json:"last_message_at"`
 	MessageCount           int        `gorm:"default:0" json:"message_count"`
+	AgentNames             string     `gorm:"type:varchar(1000)" json:"agent_names"`
 	Metadata               string     `gorm:"type:json" json:"metadata"`
 	CreatedAt              time.Time  `gorm:"not null" json:"created_at"`
 	UpdatedAt              time.Time  `gorm:"not null" json:"updated_at"`

@@ -29,6 +29,7 @@ func ListConversations(c *gin.Context) {
 	channelID := c.Query("channel_id")
 	channelType := c.Query("channel_type")
 	search := c.Query("search")
+	agentName := c.Query("agent_name")
 	evalFilter := c.Query("evaluation") // evaluated | not_evaluated | PASS | FAIL
 
 	query := db.DB.Where("conversations.tenant_id = ?", tenantID)
@@ -42,6 +43,9 @@ func ListConversations(c *gin.Context) {
 	}
 	if search != "" {
 		query = query.Where("conversations.customer_name LIKE ?", "%"+search+"%")
+	}
+	if agentName != "" {
+		query = query.Where("conversations.agent_names LIKE ?", "%"+agentName+"%")
 	}
 
 	// Evaluation filter
@@ -90,6 +94,7 @@ func ListConversations(c *gin.Context) {
 		ChannelName    string  `json:"channel_name"`
 		ChannelType    string  `json:"channel_type"`
 		CustomerName   string  `json:"customer_name"`
+		AgentNames     string  `json:"agent_names"`
 		LastMessageAt  *string `json:"last_message_at"`
 		MessageCount   int     `json:"message_count"`
 		CreatedAt      string  `json:"created_at"`
@@ -109,6 +114,7 @@ func ListConversations(c *gin.Context) {
 			ChannelName:   ch.Name,
 			ChannelType:   ch.ChannelType,
 			CustomerName:  conv.CustomerName,
+			AgentNames:    conv.AgentNames,
 			LastMessageAt: lastMsg,
 			MessageCount:  conv.MessageCount,
 			CreatedAt:     conv.CreatedAt.Format("2006-01-02T15:04:05Z"),

@@ -82,6 +82,12 @@ const router = createRouter({
           meta: { perm: 'jobs', permAction: 'w' },
         },
         {
+          path: 'staff-report',
+          name: 'staff-report',
+          component: () => import('../views/StaffReport.vue'),
+          meta: { perm: 'messages' },
+        },
+        {
           path: 'activity-logs',
           name: 'activity-logs',
           component: () => import('../views/ActivityLogs.vue'),

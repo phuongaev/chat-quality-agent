@@ -8,6 +8,7 @@ export interface Conversation {
   channel_name: string
   channel_type: string
   customer_name: string
+  agent_names: string
   last_message_at: string | null
   message_count: number
   created_at: string

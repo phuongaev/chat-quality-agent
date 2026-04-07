@@ -38,6 +38,7 @@ export default {
   nav_home: 'Home',
   nav_channels: 'Channels',
   nav_jobs: 'AI Tasks',
+  nav_staff_report: 'Staff Report',
   nav_notification_logs: 'Notification Logs',
   nav_mcp: 'MCP Connections',
   nav_messages: 'Messages',

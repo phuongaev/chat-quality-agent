@@ -155,6 +155,9 @@ func SetupRouter(cfg *config.Config) *gin.Engine {
 			// Dashboard
 			tenant.GET("/dashboard", handlers.GetDashboard)
 
+			// Staff Report
+			tenant.GET("/staff-report", middleware.RequirePermission("messages", "r"), handlers.GetStaffReport)
+
 			// Jobs
 			tenant.GET("/jobs", middleware.RequirePermission("jobs", "r"), handlers.ListJobs)
 			tenant.POST("/jobs", middleware.RequirePermission("jobs", "w"), handlers.CreateJob)

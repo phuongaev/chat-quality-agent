@@ -30,7 +30,7 @@ import (
 var httpClientWithTimeout = &http.Client{Timeout: 30 * time.Second}
 
 type CreateChannelRequest struct {
-	ChannelType string          `json:"channel_type" binding:"required,oneof=zalo_oa facebook"`
+	ChannelType string          `json:"channel_type" binding:"required,oneof=zalo_oa facebook pancake"`
 	Name        string          `json:"name" binding:"required,min=2,max=255"`
 	Credentials json.RawMessage `json:"credentials" binding:"required"` // JSON: varies by type
 	Metadata    string          `json:"metadata"`
