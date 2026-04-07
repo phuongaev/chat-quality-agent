@@ -36,42 +36,61 @@ func NewPancakeAdapter(creds PancakeCredentials) *PancakeAdapter {
 }
 
 func (p *PancakeAdapter) doRequest(ctx context.Context, url string) (map[string]interface{}, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("create pancake api request: %w", err)
-	}
+	maxRetries := 3
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("create pancake api request: %w", err)
+		}
 
-	q := req.URL.Query()
-	if q.Get("access_token") == "" {
-		q.Set("access_token", p.creds.AccessToken)
-		req.URL.RawQuery = q.Encode()
-	}
+		q := req.URL.Query()
+		if q.Get("access_token") == "" {
+			q.Set("access_token", p.creds.AccessToken)
+			req.URL.RawQuery = q.Encode()
+		}
 
-	resp, err := p.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("pancake api request failed: %w", err)
-	}
-	defer resp.Body.Close()
+		resp, err := p.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("pancake api request failed: %w", err)
+		}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("pancake api read body failed: %w", err)
-	}
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("pancake api read body failed: %w", err)
+		}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("pancake api error: status %d, body: %s", resp.StatusCode, string(body))
-	}
+		// Handle rate limiting with retry
+		if resp.StatusCode == 429 && attempt < maxRetries {
+			wait := time.Duration(2+attempt*3) * time.Second // 2s, 5s, 8s
+			log.Printf("[pancake] rate limited (429), waiting %v before retry %d/%d", wait, attempt+1, maxRetries)
+			select {
+			case <-time.After(wait):
+				continue
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
 
-	var result map[string]interface{}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("pancake api decode failed: %w", err)
-	}
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("pancake api error: status %d, body: %s", resp.StatusCode, string(body))
+		}
 
-	if errMsg, ok := result["error"].(string); ok && errMsg != "" {
-		return nil, fmt.Errorf("pancake api error: %s", errMsg)
-	}
+		var result map[string]interface{}
+		if err := json.Unmarshal(body, &result); err != nil {
+			return nil, fmt.Errorf("pancake api decode failed: %w", err)
+		}
 
-	return result, nil
+		if errMsg, ok := result["error"].(string); ok && errMsg != "" {
+			return nil, fmt.Errorf("pancake api error: %s", errMsg)
+		}
+
+		// Throttle: small delay between requests to avoid rate limiting
+		time.Sleep(500 * time.Millisecond)
+
+		return result, nil
+	}
+	return nil, fmt.Errorf("pancake api: max retries exceeded")
 }
 
 func (p *PancakeAdapter) FetchRecentConversations(ctx context.Context, since time.Time, limit int) ([]SyncedConversation, error) {
