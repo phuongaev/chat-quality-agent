@@ -75,15 +75,30 @@ func (s *SyncEngine) SyncChannel(ctx context.Context, channel models.Channel) er
 		})
 	}
 
-	// Determine since — use last_sync_at or default to 30 days ago for first sync
+	// Read sync settings from channel metadata
+	syncDays := 30
+	syncMaxConversations := 500
+	if channel.Metadata != "" {
+		var meta map[string]interface{}
+		if json.Unmarshal([]byte(channel.Metadata), &meta) == nil {
+			if d, ok := meta["sync_days"].(float64); ok && d > 0 {
+				syncDays = int(d)
+			}
+			if m, ok := meta["sync_max_conversations"].(float64); ok && m > 0 {
+				syncMaxConversations = int(m)
+			}
+		}
+	}
+
+	// Determine since — use last_sync_at or default to syncDays ago for first sync
 	// Subtract 1 hour buffer to avoid missing messages near the boundary
-	since := time.Now().AddDate(0, 0, -30)
+	since := time.Now().AddDate(0, 0, -syncDays)
 	if channel.LastSyncAt != nil {
 		since = channel.LastSyncAt.Add(-1 * time.Hour)
 	}
 
 	// Fetch recent conversations
-	conversations, err := adapter.FetchRecentConversations(ctx, since, 100)
+	conversations, err := adapter.FetchRecentConversations(ctx, since, syncMaxConversations)
 	if err != nil {
 		return s.updateSyncStatus(channel.ID, "error", fmt.Sprintf("fetch conversations failed: %v", err))
 	}

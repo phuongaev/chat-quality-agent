@@ -128,6 +128,24 @@
         <v-alert v-if="newChannel.sync_interval <= 5" type="warning" variant="tonal" density="compact" class="mb-3">
           Đồng bộ quá thường xuyên có thể bị giới hạn bởi API của nền tảng.
         </v-alert>
+        <v-select
+          v-model="newChannel.sync_days"
+          :items="syncDaysOptions"
+          label="Lịch sử đồng bộ"
+          density="compact"
+          class="mb-3"
+          hint="Lấy hội thoại trong bao nhiêu ngày gần nhất (lần sync đầu tiên)"
+          persistent-hint
+        />
+        <v-select
+          v-model="newChannel.sync_max_conversations"
+          :items="syncMaxConvOptions"
+          label="Tối đa hội thoại"
+          density="compact"
+          class="mb-3"
+          hint="Số lượng hội thoại tối đa mỗi lần đồng bộ"
+          persistent-hint
+        />
         <v-switch
           v-model="newChannel.sync_files"
           label="Lưu trữ file/ảnh từ cuộc chat"
@@ -189,6 +207,24 @@
         <v-alert v-if="editForm.sync_interval <= 5" type="warning" variant="tonal" density="compact" class="mb-3">
           Đồng bộ quá thường xuyên có thể bị giới hạn bởi API của nền tảng (Facebook/Zalo).
         </v-alert>
+        <v-select
+          v-model="editForm.sync_days"
+          :items="syncDaysOptions"
+          label="Lịch sử đồng bộ"
+          density="compact"
+          class="mb-3"
+          hint="Lấy hội thoại trong bao nhiêu ngày gần nhất (lần sync đầu tiên)"
+          persistent-hint
+        />
+        <v-select
+          v-model="editForm.sync_max_conversations"
+          :items="syncMaxConvOptions"
+          label="Tối đa hội thoại"
+          density="compact"
+          class="mb-3"
+          hint="Số lượng hội thoại tối đa mỗi lần đồng bộ"
+          persistent-hint
+        />
         <v-switch v-model="editForm.sync_files" label="Lưu trữ file/ảnh từ cuộc chat" color="primary" density="compact" hint="Tải và lưu file, ảnh từ cuộc chat lên server." persistent-hint />
         <v-card-actions class="mt-4 px-0">
           <v-spacer />
@@ -232,6 +268,8 @@ const newChannel = reactive({
   creds: {} as Record<string, string>,
   sync_files: false,
   sync_interval: 15,
+  sync_days: 30,
+  sync_max_conversations: 500,
 })
 
 onMounted(() => {
@@ -260,7 +298,7 @@ async function createAndAuthZalo() {
         app_id: newChannel.creds.app_id,
         app_secret: newChannel.creds.app_secret,
       },
-      metadata: JSON.stringify({ sync_files: newChannel.sync_files, sync_interval: newChannel.sync_interval }),
+      metadata: JSON.stringify({ sync_files: newChannel.sync_files, sync_interval: newChannel.sync_interval, sync_days: newChannel.sync_days, sync_max_conversations: newChannel.sync_max_conversations }),
     })
     showDialog.value = false
 
@@ -305,7 +343,7 @@ async function createFacebook() {
         page_id: newChannel.creds.page_id,
         access_token: newChannel.creds.access_token,
       },
-      metadata: JSON.stringify({ sync_files: newChannel.sync_files, sync_interval: newChannel.sync_interval }),
+      metadata: JSON.stringify({ sync_files: newChannel.sync_files, sync_interval: newChannel.sync_interval, sync_days: newChannel.sync_days, sync_max_conversations: newChannel.sync_max_conversations }),
     })
     showDialog.value = false
     newChannel.name = ''
@@ -329,7 +367,7 @@ async function createPancake() {
         page_id: newChannel.creds.page_id,
         access_token: newChannel.creds.access_token,
       },
-      metadata: JSON.stringify({ sync_files: newChannel.sync_files, sync_interval: newChannel.sync_interval }),
+      metadata: JSON.stringify({ sync_files: newChannel.sync_files, sync_interval: newChannel.sync_interval, sync_days: newChannel.sync_days, sync_max_conversations: newChannel.sync_max_conversations }),
     })
     showDialog.value = false
     newChannel.name = ''
@@ -425,7 +463,7 @@ function showSnack(text: string, color: string) {
 const editDialog = ref(false)
 const savingEdit = ref(false)
 const editChannelId = ref('')
-const editForm = reactive({ name: '', is_active: true, sync_files: false, sync_interval: 15 })
+const editForm = reactive({ name: '', is_active: true, sync_files: false, sync_interval: 15, sync_days: 30, sync_max_conversations: 500 })
 const syncIntervalOptions = [
   { title: 'Mỗi 1 phút', value: 1 },
   { title: 'Mỗi 5 phút', value: 5 },
@@ -436,6 +474,23 @@ const syncIntervalOptions = [
   { title: 'Mỗi 6 giờ', value: 360 },
   { title: 'Mỗi ngày', value: 1440 },
 ]
+const syncDaysOptions = [
+  { title: '7 ngày', value: 7 },
+  { title: '14 ngày', value: 14 },
+  { title: '30 ngày (mặc định)', value: 30 },
+  { title: '60 ngày', value: 60 },
+  { title: '90 ngày', value: 90 },
+  { title: '180 ngày', value: 180 },
+  { title: '365 ngày', value: 365 },
+]
+const syncMaxConvOptions = [
+  { title: '100 hội thoại', value: 100 },
+  { title: '200 hội thoại', value: 200 },
+  { title: '500 hội thoại (mặc định)', value: 500 },
+  { title: '1000 hội thoại', value: 1000 },
+  { title: '2000 hội thoại', value: 2000 },
+  { title: 'Không giới hạn', value: 0 },
+]
 
 function openEdit(ch: any) {
   editChannelId.value = ch.id
@@ -445,9 +500,13 @@ function openEdit(ch: any) {
     const meta = JSON.parse(ch.metadata || '{}')
     editForm.sync_files = meta.sync_files || false
     editForm.sync_interval = meta.sync_interval || 15
+    editForm.sync_days = meta.sync_days || 30
+    editForm.sync_max_conversations = meta.sync_max_conversations || 500
   } catch {
     editForm.sync_files = false
     editForm.sync_interval = 15
+    editForm.sync_days = 30
+    editForm.sync_max_conversations = 500
   }
   editDialog.value = true
 }
@@ -458,7 +517,7 @@ async function saveEdit() {
     await channelStore.updateChannel(tenantId.value, editChannelId.value, {
       name: editForm.name,
       is_active: editForm.is_active,
-      metadata: JSON.stringify({ sync_files: editForm.sync_files, sync_interval: editForm.sync_interval }),
+      metadata: JSON.stringify({ sync_files: editForm.sync_files, sync_interval: editForm.sync_interval, sync_days: editForm.sync_days, sync_max_conversations: editForm.sync_max_conversations }),
     })
     editDialog.value = false
     showSnack(t('success'), 'success')
