@@ -98,12 +98,13 @@ func (p *PancakeAdapter) FetchRecentConversations(ctx context.Context, since tim
 	seenIDs := make(map[string]bool)
 	lastConvID := ""
 
-	// Build base URL with since filter (Unix timestamp in seconds)
-	baseURL := fmt.Sprintf("%s/pages/%s/conversations?page_access_token=%s&order_by=updated_at",
+	// Build base URL — use access_token (verified working) + order by updated_at
+	baseURL := fmt.Sprintf("%s/pages/%s/conversations?access_token=%s&order_by=updated_at",
 		pancakeConversationsBase, p.creds.PageID, p.creds.AccessToken)
 	if !since.IsZero() {
 		baseURL += fmt.Sprintf("&since=%d", since.Unix())
 	}
+	log.Printf("[pancake] fetching conversations: since=%v, limit=%d", since, limit)
 
 	batch := 0
 	for {
@@ -128,6 +129,14 @@ func (p *PancakeAdapter) FetchRecentConversations(ctx context.Context, since tim
 			data, ok = result["conversations"].([]interface{})
 		}
 		if !ok || len(data) == 0 {
+			if batch == 0 {
+				// Log why first batch returned empty
+				topKeys := make([]string, 0, len(result))
+				for k := range result {
+					topKeys = append(topKeys, k)
+				}
+				log.Printf("[pancake] first batch empty, response keys: %v, success=%v", topKeys, result["success"])
+			}
 			break
 		}
 
@@ -361,7 +370,7 @@ func (p *PancakeAdapter) FetchMessages(ctx context.Context, conversationID strin
 }
 
 func (p *PancakeAdapter) HealthCheck(ctx context.Context) error {
-	url := fmt.Sprintf("%s/pages/%s/conversations?page_access_token=%s",
+	url := fmt.Sprintf("%s/pages/%s/conversations?access_token=%s",
 		pancakeConversationsBase, p.creds.PageID, p.creds.AccessToken)
 	_, err := p.doRequest(ctx, url)
 	return err
