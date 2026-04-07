@@ -85,11 +85,11 @@
         <v-card class="pa-4">
           <div class="d-flex justify-space-between align-center">
             <div>
-              <div class="text-body-2 text-grey">{{ ch.channel_type === 'facebook' ? 'Facebook' : 'Zalo OA' }}</div>
+              <div class="text-body-2 text-grey">{{ channelLabel(ch.channel_type) }}</div>
               <div class="text-h5 font-weight-bold mt-1">{{ ch.count }}</div>
             </div>
-            <v-icon :color="ch.channel_type === 'facebook' ? 'blue' : 'green'" size="32" class="opacity-50">
-              {{ ch.channel_type === 'facebook' ? 'mdi-facebook-messenger' : 'mdi-chat' }}
+            <v-icon :color="channelColor(ch.channel_type)" size="32" class="opacity-50">
+              {{ channelIcon(ch.channel_type) }}
             </v-icon>
           </div>
         </v-card>
@@ -287,6 +287,22 @@ const services = ref([
 const messagesByDay = ref<any[]>([])
 const channelCounts = ref<any[]>([])
 const totalMessages = computed(() => messagesByDay.value.reduce((sum, d) => sum + (d.count || 0), 0))
+
+function channelLabel(type: string): string {
+  if (type === 'facebook') return 'Facebook'
+  if (type === 'pancake') return 'Pancake'
+  return 'Zalo OA'
+}
+function channelColor(type: string): string {
+  if (type === 'facebook') return 'blue'
+  if (type === 'pancake') return 'teal'
+  return 'green'
+}
+function channelIcon(type: string): string {
+  if (type === 'facebook') return 'mdi-facebook-messenger'
+  if (type === 'pancake') return 'mdi-chat-processing'
+  return 'mdi-chat'
+}
 
 // Date filter + presets
 const now = new Date()
