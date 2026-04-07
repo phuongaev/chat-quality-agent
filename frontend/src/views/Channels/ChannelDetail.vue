@@ -29,8 +29,8 @@
       <v-row>
         <v-col cols="6" sm="3">
           <div class="text-caption text-grey">Loại kênh</div>
-          <v-chip size="small" :color="channel.channel_type === 'facebook' ? 'blue' : 'green'" variant="tonal">
-            {{ channel.channel_type === 'facebook' ? 'Facebook' : 'Zalo OA' }}
+          <v-chip size="small" :color="channel.channel_type === 'facebook' ? 'blue' : channel.channel_type === 'pancake' ? 'teal' : 'green'" variant="tonal">
+            {{ channel.channel_type === 'facebook' ? 'Facebook' : channel.channel_type === 'pancake' ? 'Pancake' : 'Zalo OA' }}
           </v-chip>
         </v-col>
         <v-col cols="6" sm="3">
