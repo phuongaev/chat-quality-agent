@@ -165,12 +165,15 @@ func (p *PancakeAdapter) FetchRecentConversations(ctx context.Context, since tim
 			})
 		}
 
+		log.Printf("[pancake] page %d: got %d items, total so far: %d, reachedOld: %v, limit: %d",
+			pageNum, len(data), len(conversations), reachedOld, limit)
+
 		if reachedOld {
 			break
 		}
 
-		// Check for more pages — Pancake returns 60 items per page
-		if len(data) < 60 {
+		// Pancake returns ~60 items per page; if less, we've reached the last page
+		if len(data) < 50 {
 			break
 		}
 
