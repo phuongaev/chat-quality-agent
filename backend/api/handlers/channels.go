@@ -102,6 +102,16 @@ func CreateChannel(c *gin.Context) {
 	externalID := ""
 	channelName := req.Name
 
+	if req.ChannelType == "pancake" {
+		var pancakeCreds struct {
+			PageID      string `json:"page_id"`
+			AccessToken string `json:"access_token"`
+		}
+		if err := json.Unmarshal(req.Credentials, &pancakeCreds); err == nil {
+			externalID = pancakeCreds.PageID
+		}
+	}
+
 	if req.ChannelType == "facebook" {
 		var fbCreds struct {
 			PageID      string `json:"page_id"`
