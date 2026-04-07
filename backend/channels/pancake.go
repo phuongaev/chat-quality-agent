@@ -95,6 +95,7 @@ func (p *PancakeAdapter) doRequest(ctx context.Context, url string) (map[string]
 
 func (p *PancakeAdapter) FetchRecentConversations(ctx context.Context, since time.Time, limit int) ([]SyncedConversation, error) {
 	var conversations []SyncedConversation
+	seenIDs := make(map[string]bool)
 
 	pageNum := 1
 	for {
@@ -120,6 +121,7 @@ func (p *PancakeAdapter) FetchRecentConversations(ctx context.Context, since tim
 		}
 
 		reachedOld := false
+		prevCount := len(conversations)
 		for _, item := range data {
 			conv, ok := item.(map[string]interface{})
 			if !ok {
@@ -132,6 +134,12 @@ func (p *PancakeAdapter) FetchRecentConversations(ctx context.Context, since tim
 					convID = fmt.Sprintf("%.0f", numID)
 				}
 			}
+
+			// Skip duplicates (Pancake may return same conversations across pages)
+			if seenIDs[convID] {
+				continue
+			}
+			seenIDs[convID] = true
 
 			// Parse updated_at — Pancake format: "2026-04-06T14:24:19" (no timezone)
 			updatedAt := parsePancakeTime(conv, "updated_at")
@@ -189,10 +197,17 @@ func (p *PancakeAdapter) FetchRecentConversations(ctx context.Context, since tim
 			}
 		}
 
-		log.Printf("[pancake] page %d: got %d items, total so far: %d, reachedOld: %v, limit: %d",
-			pageNum, len(data), len(conversations), reachedOld, limit)
+		newCount := len(conversations) - prevCount
+		log.Printf("[pancake] page %d: %d items, %d new, %d duplicates, total unique: %d, limit: %d",
+			pageNum, len(data), newCount, len(data)-newCount, len(conversations), limit)
 
 		if reachedOld {
+			break
+		}
+
+		// Stop if entire page was duplicates — no more new data
+		if newCount == 0 {
+			log.Printf("[pancake] stopping: page %d had 0 new conversations (all duplicates)", pageNum)
 			break
 		}
 
