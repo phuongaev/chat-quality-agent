@@ -96,6 +96,7 @@ func (p *PancakeAdapter) doRequest(ctx context.Context, url string) (map[string]
 func (p *PancakeAdapter) FetchRecentConversations(ctx context.Context, since time.Time, limit int) ([]SyncedConversation, error) {
 	var conversations []SyncedConversation
 	seenIDs := make(map[string]bool)
+	dupPages := 0
 
 	pageNum := 1
 	for {
@@ -205,9 +206,15 @@ func (p *PancakeAdapter) FetchRecentConversations(ctx context.Context, since tim
 			break
 		}
 
-		// Stop if entire page was duplicates — no more new data
+		// Track consecutive pages with no new data
 		if newCount == 0 {
-			log.Printf("[pancake] stopping: page %d had 0 new conversations (all duplicates)", pageNum)
+			dupPages++
+		} else {
+			dupPages = 0
+		}
+		// Stop after 3 consecutive pages of all duplicates
+		if dupPages >= 3 {
+			log.Printf("[pancake] stopping: %d consecutive pages with 0 new conversations", dupPages)
 			break
 		}
 
