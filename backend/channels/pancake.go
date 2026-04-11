@@ -314,7 +314,7 @@ func (p *PancakeAdapter) FetchMessages(ctx context.Context, conversationID strin
 					senderExternalID = fmt.Sprintf("%.0f", fromIDNum)
 				}
 
-				// Messages sent by the page (page_id matches from.id) → agent
+				// Messages sent by the page (page_id matches from.id)
 				pageID, _ := msg["page_id"].(string)
 				if pageID == "" {
 					if pid, ok := msg["page_id"].(float64); ok {
@@ -322,7 +322,18 @@ func (p *PancakeAdapter) FetchMessages(ctx context.Context, conversationID strin
 					}
 				}
 				if senderExternalID != "" && senderExternalID == pageID {
-					senderType = "agent"
+					// Distinguish auto messages vs staff messages:
+					// - "ad-..." IDs = ad click auto-reply → system
+					// - Empty content with only attachments = auto notification → system
+					// - Everything else from page = staff reply → agent
+					if strings.HasPrefix(msgID, "ad-") || strings.HasPrefix(msgID, "ad_") {
+						senderType = "system"
+						senderName = ""
+					} else {
+						senderType = "agent"
+						// Clear page name — will be replaced with staff name in sync.go
+						senderName = ""
+					}
 				}
 			}
 

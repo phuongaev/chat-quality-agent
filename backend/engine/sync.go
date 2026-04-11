@@ -140,8 +140,7 @@ func (s *SyncEngine) SyncChannel(ctx context.Context, channel models.Channel) er
 			continue
 		}
 
-		// For Pancake: agent messages have sender_name = page name (not staff name).
-		// Replace with actual staff names from conversation metadata (current_assign_users).
+		// For Pancake: set staff names from conversation metadata (current_assign_users)
 		if channel.ChannelType == "pancake" && conv.Metadata != nil {
 			agentName := ""
 			if names, ok := conv.Metadata["_agent_names"].([]string); ok && len(names) > 0 {
@@ -155,10 +154,12 @@ func (s *SyncEngine) SyncChannel(ctx context.Context, channel models.Channel) er
 				}
 				agentName = strings.Join(nameStrs, ", ")
 			}
-			if agentName != "" {
-				for i := range messages {
-					if messages[i].SenderType == "agent" {
+			for i := range messages {
+				if messages[i].SenderType == "agent" {
+					if agentName != "" {
 						messages[i].SenderName = agentName
+					} else if messages[i].SenderName == "" {
+						messages[i].SenderName = "Nhân viên"
 					}
 				}
 			}
